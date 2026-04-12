@@ -1,0 +1,110 @@
+ ---                                                                                                                                                                                                                                        
+  1. Health Check                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                             
+  // Request                                                                                                                                                                                                                                 
+  GET http://localhost:8000/health                                                                                                                                                                                                           
+                                                                                                                                                                                                                                           
+  // Response  200                                                                                                                                                                                                                           
+  { "status": "ok" }
+                                                                                                                                                                                                                                             
+  ---                                                                                                                                                                                                                                      
+  2. Get All Users
+
+  // Request
+  GET http://localhost:8000/users
+
+  // Response  200                                                                                                                                                                                                                           
+  {
+    "users": [                                                                                                                                                                                                                               
+      { "id": 1, "name": "Alice" },                                                                                                                                                                                                        
+      { "id": 2, "name": "Bob" }
+    ]
+  }
+
+  ---
+  3. Create User
+
+  // Request
+  POST http://localhost:8000/users
+  { "name": "New User" }
+
+  // Response  201
+  { "id": 3, "name": "New User" }
+
+  ---
+  4. Get Single User
+
+  // Request
+  GET http://localhost:8000/users/1   (any id)
+
+  // Response  200
+  { "id": 1, "name": "Alice" }
+
+  ---
+  5. Replace User (Full Update)
+
+  // Request
+  PUT http://localhost:8000/users/1
+  { "name": "Updated User" }
+
+  // Response  200                                                                                                                                                                                                                           
+  { "id": 1, "name": "Updated User" }
+                                                                                                                                                                                                                                             
+  ---                                                                                                                                                                                                                                      
+  6. Update User (Partial Update)
+
+  // Request
+  PATCH http://localhost:8000/users/1
+  { "name": "Patched User" }
+                                                                                                                                                                                                                                             
+  // Response  200
+  { "id": 1, "name": "Patched User" }                                                                                                                                                                                                        
+                                                                                                                                                                                                                                           
+  ---
+  7. Delete User
+
+  // Request
+  DELETE http://localhost:8000/users/1
+
+  // Response  204
+  (no body)
+                                                                                                                                                                                                                                             
+  ---
+  8. Slow Endpoint (1.5s delay)                                                                                                                                                                                                              
+                                                                                                                                                                                                                                           
+  // Request
+  GET http://localhost:8000/slow
+
+  // Response  200  (after 1500ms)
+  { "message": "This response was intentionally delayed" }
+                                                                                                                                                                                                                                             
+  ---
+  9. Server Error                                                                                                                                                                                                                            
+                                                                                                                                                                                                                                           
+  // Request
+  GET http://localhost:8000/error
+
+  // Response  500
+  { "error": "Internal Server Error", "message": "Something went wrong" }
+                                                                                                                                                                                                                                             
+  ---
+  10. Unauthorized                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                           
+  // Request
+  GET http://localhost:8000/unauthorized
+
+  // Response  401
+  { "error": "Unauthorized", "message": "Missing or invalid token" }
+
+  ---
+  11. Custom Headers
+
+  // Request
+  GET http://localhost:8000/custom-headers
+
+  // Response  200
+  // Headers: X-Custom-Header: my-value, X-Request-Id: abc-123
+  { "message": "Response includes custom headers" }
+                                                                                                                                                                                                                                             
+  ---
+  These are the static mocks from the YAML. You can add more on the fly via POST /admin/mocks without restarting the server.                          

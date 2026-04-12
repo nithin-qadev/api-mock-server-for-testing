@@ -107,65 +107,219 @@ curl -X POST http://localhost:8000/admin/mocks \
 
 ---
 
-## Using in a Test Automation Framework
+## Using in a Java REST Assured + TestNG Framework
 
-```python
-import requests
+### build.gradle
 
-BASE = "http://localhost:8000"
+```groovy
+plugins {
+    id 'java'
+}
 
+repositories {
+    mavenCentral()
+}
 
-def setup_mock(method, path, status, body):
-    requests.post(f"{BASE}/admin/mocks", json={
-        "method": method,
-        "path": path,
-        "response": {"status": status, "body": body}
-    })
+dependencies {
+    testImplementation 'io.rest-assured:rest-assured:5.4.0'
+    testImplementation 'org.testng:testng:7.9.0'
+    testImplementation 'org.hamcrest:hamcrest:2.2'
+}
 
-
-def teardown():
-    requests.delete(f"{BASE}/admin/mocks")
-    requests.delete(f"{BASE}/admin/requests")
-
-
-def get_recorded_requests():
-    return requests.get(f"{BASE}/admin/requests").json()
-
-
-# ── Example test ──────────────────────────────────────────────────────────────
-
-def test_create_user():
-    # Arrange
-    setup_mock("POST", "/users", 201, {"id": 99, "name": "Test User"})
-
-    # Act — call your service under test (which calls the mock server)
-    response = requests.post(f"{BASE}/users", json={"name": "Test User"})
-
-    # Assert response
-    assert response.status_code == 201
-    assert response.json()["id"] == 99
-
-    # Assert the request was actually made
-    calls = get_recorded_requests()
-    assert any(r["method"] == "POST" and r["path"] == "/users" for r in calls)
-
-    # Cleanup
-    teardown()
+test {
+    useTestNG()
+}
 ```
 
-### pytest fixture example
+### Base test class (reuse across all tests)
 
-```python
-import pytest
-import requests
+```java
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeSuite;
 
-BASE = "http://localhost:8000"
+import static io.restassured.RestAssured.given;
 
-@pytest.fixture(autouse=True)
-def reset_mocks():
-    yield
-    requests.delete(f"{BASE}/admin/mocks")
-    requests.delete(f"{BASE}/admin/requests")
+public abstract class MockServerTest {
+
+    protected static final String MOCK_SERVER = "http://localhost:8000";
+
+    @BeforeSuite
+    public void configure() {
+        RestAssured.baseURI = MOCK_SERVER;
+    }
+
+    // Register a mock before each test
+    protected void registerMock(String method, String path, int status, String bodyJson) {
+        String payload = String.format("""
+            {
+                "method": "%s",
+                "path": "%s",
+                "response": {
+                    "status": %d,
+                    "body": %s
+                }
+            }
+        """, method, path, status, bodyJson);
+
+        given()
+            .contentType(ContentType.JSON)
+            .body(payload)
+        .when()
+            .post("/admin/mocks")
+        .then()
+            .statusCode(201);
+    }
+
+    // Wipe mocks and request log after every test
+    @AfterMethod
+    public void resetMockServer() {
+        given().delete("/admin/mocks").then().statusCode(204);
+        given().delete("/admin/requests").then().statusCode(204);
+    }
+}
+```
+
+### Example tests
+
+```java
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.*;
+
+public class UserApiTest extends MockServerTest {
+
+    @BeforeMethod
+    public void setupMocks() {
+        registerMock("GET", "/users", 200, """
+            { "users": [{ "id": 1, "name": "Alice" }] }
+        """);
+
+        registerMock("POST", "/users", 201, """
+            { "id": 99, "name": "New User" }
+        """);
+
+        registerMock("PUT", "/users/*", 200, """
+            { "id": 1, "name": "Updated User" }
+        """);
+
+        registerMock("PATCH", "/users/*", 200, """
+            { "id": 1, "name": "Patched User" }
+        """);
+
+        registerMock("DELETE", "/users/*", 204, "null");
+    }
+
+    @Test
+    public void shouldReturnUsersList() {
+        given()
+        .when()
+            .get("/users")
+        .then()
+            .statusCode(200)
+            .body("users.size()", equalTo(1))
+            .body("users[0].name", equalTo("Alice"));
+    }
+
+    @Test
+    public void shouldCreateUser() {
+        given()
+            .contentType("application/json")
+            .body("{ \"name\": \"New User\" }")
+        .when()
+            .post("/users")
+        .then()
+            .statusCode(201)
+            .body("id", equalTo(99));
+    }
+
+    @Test
+    public void shouldFullyUpdateUser() {
+        given()
+            .contentType("application/json")
+            .body("{ \"name\": \"Updated User\" }")
+        .when()
+            .put("/users/1")
+        .then()
+            .statusCode(200)
+            .body("name", equalTo("Updated User"));
+    }
+
+    @Test
+    public void shouldPartiallyUpdateUser() {
+        given()
+            .contentType("application/json")
+            .body("{ \"name\": \"Patched User\" }")
+        .when()
+            .patch("/users/1")
+        .then()
+            .statusCode(200)
+            .body("name", equalTo("Patched User"));
+    }
+
+    @Test
+    public void shouldDeleteUser() {
+        given()
+        .when()
+            .delete("/users/1")
+        .then()
+            .statusCode(204);
+    }
+
+    @Test
+    public void shouldVerifyRequestWasMade() {
+        // Act
+        given().contentType("application/json").body("{}").post("/users");
+
+        // Assert — check the mock server received the call
+        List<Map<String, Object>> requests =
+            given().get("/admin/requests").jsonPath().getList("$");
+
+        boolean found = requests.stream().anyMatch(r ->
+            "POST".equals(r.get("method")) && "/users".equals(r.get("path"))
+        );
+        Assert.assertTrue(found, "Expected POST /users to be recorded");
+    }
+}
+```
+
+### Simulating errors in a test
+
+```java
+@Test
+public void shouldHandleServerError() {
+    registerMock("GET", "/users", 500, """
+        { "error": "Internal Server Error" }
+    """);
+
+    given()
+    .when()
+        .get("/users")
+    .then()
+        .statusCode(500)
+        .body("error", equalTo("Internal Server Error"));
+}
+
+@Test
+public void shouldHandleUnauthorized() {
+    registerMock("GET", "/users", 401, """
+        { "error": "Unauthorized" }
+    """);
+
+    given()
+    .when()
+        .get("/users")
+    .then()
+        .statusCode(401)
+        .body("error", equalTo("Unauthorized"));
+}
 ```
 
 ---
@@ -205,7 +359,7 @@ def reset_mocks():
 | Variable | Default | Description |
 |---|---|---|
 | `MOCKS_FILE` | `mocks/example.yaml` | Path to the YAML mock file loaded on startup |
-| `PORT` | `5000` | Port the server listens on |
+| `PORT` | `8000` | Port the server listens on |
 
 ---
 
