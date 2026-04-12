@@ -1,0 +1,11 @@
+services:
+  mock-server:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount mocks/ so you can edit YAML without rebuilding the image
+      - ./mocks:/app/mocks
+    environment:
+      MOCKS_FILE: mocks/example.yaml
+      PORT: 8000

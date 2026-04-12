@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# example.yaml — mocks loaded automatically on server startup
+#
+# Each entry needs: method, path, response
+# Supported response fields:
+#   status    HTTP status code          (default: 200)
+#   body      JSON response body        (default: null)
+#   headers   extra response headers    (default: {})
+#   delay_ms  artificial delay in ms    (default: 0)
+#
+# Paths support fnmatch wildcards:
+#   /users/*    matches /users/1, /users/abc, etc.
+#   /a/*/b      matches /a/x/b, /a/123/b, etc.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Health check
+- method: GET
+  path: /health
+  response:
+    status: 200
+    body:
+      status: ok
+
+# ── Users collection ──────────────────────────────────────────────────────────
+
+- method: GET
+  path: /users
+  response:
+    status: 200
+    body:
+      users:
+        - id: 1
+          name: Alice
+        - id: 2
+          name: Bob
+
+- method: POST
+  path: /users
+  response:
+    status: 201
+    body:
+      id: 3
+      name: New User
+
+# ── Single user ───────────────────────────────────────────────────────────────
+
+- method: GET
+  path: /users/*
+  response:
+    status: 200
+    body:
+      id: 1
+      name: Alice
+
+- method: PUT
+  path: /users/*
+  response:
+    status: 200
+    body:
+      id: 1
+      name: Updated User
+
+- method: PATCH
+  path: /users/*
+  response:
+    status: 200
+    body:
+      id: 1
+      name: Patched User
+
+- method: DELETE
+  path: /users/*
+  response:
+    status: 204
+    body: null
+
+# ── Edge cases ────────────────────────────────────────────────────────────────
+
+- method: GET
+  path: /slow
+  response:
+    status: 200
+    body:
+      message: This response was intentionally delayed
+    delay_ms: 1500
+
+- method: GET
+  path: /error
+  response:
+    status: 500
+    body:
+      error: Internal Server Error
+      message: Something went wrong
+
+- method: GET
+  path: /unauthorized
+  response:
+    status: 401
+    body:
+      error: Unauthorized
+      message: Missing or invalid token
+
+- method: GET
+  path: /custom-headers
+  response:
+    status: 200
+    body:
+      message: Response includes custom headers
+    headers:
+      X-Custom-Header: my-value
+      X-Request-Id: abc-123
