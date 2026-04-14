@@ -1,110 +1,459 @@
- ---                                                                                                                                                                                                                                        
-  1. Health Check                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                             
-  // Request                                                                                                                                                                                                                                 
-  GET http://localhost:8000/health                                                                                                                                                                                                           
-                                                                                                                                                                                                                                           
-  // Response  200                                                                                                                                                                                                                           
-  { "status": "ok" }
-                                                                                                                                                                                                                                             
-  ---                                                                                                                                                                                                                                      
-  2. Get All Users
+---
+STATIC MOCKS  (defined in mocks/example.yaml)
+---
 
-  // Request
-  GET http://localhost:8000/users
+1. Health Check
 
-  // Response  200                                                                                                                                                                                                                           
+// Request
+GET http://localhost:8000/health
+
+// Response 200
+{ "status": "ok" }
+
+---
+2. Slow Endpoint (1.5s delay)
+
+// Request
+GET http://localhost:8000/slow
+
+// Response 200  (after 1500ms)
+{ "message": "This response was intentionally delayed" }
+
+---
+3. Server Error
+
+// Request
+GET http://localhost:8000/error
+
+// Response 500
+{ "error": "Internal Server Error", "message": "Something went wrong" }
+
+---
+4. Unauthorized
+
+// Request
+GET http://localhost:8000/unauthorized
+
+// Response 401
+{ "error": "Unauthorized", "message": "Missing or invalid token" }
+
+---
+5. Custom Headers
+
+// Request
+GET http://localhost:8000/custom-headers
+
+// Response 200
+// Response Headers: X-Custom-Header: my-value, X-Request-Id: abc-123
+{ "message": "Response includes custom headers" }
+
+
+---
+STATEFUL USER CRUD  (in-memory store, resets on server restart, pre-seeded with 3 users)
+---
+
+6. Get All Users
+
+// Request
+GET http://localhost:8000/users
+
+// Response 200
+[
   {
-    "users": [                                                                                                                                                                                                                               
-      { "id": 1, "name": "Alice" },                                                                                                                                                                                                        
-      { "id": 2, "name": "Bob" }
+    "id": 1,
+    "name": "Alice Nguyen",
+    "email": "alice@example.com",
+    "age": 34,
+    "active": true,
+    "score": 97.4,
+    "phone": "+1-555-0101",
+    "address": { "street": "12 Maple Avenue", "city": "San Francisco", "state": "CA", "zip": "94103", "country": "US" },
+    "tags": ["admin", "qa-lead", "automation"],
+    "lucky_numbers": [3, 7, 21, 42],
+    "ratings": [4.8, 4.9, 5.0, 4.7],
+    "preferences": { "theme": "dark", "language": "en", "notifications": true, "timezone": "America/Los_Angeles" },
+    "roles": [
+      { "id": 1, "name": "admin",   "level": 5, "permissions": ["read", "write", "delete"] },
+      { "id": 2, "name": "qa-lead", "level": 4, "permissions": ["read", "write"] }
+    ],
+    "login_history": [
+      { "timestamp": "2026-04-01T09:00:00Z", "ip": "192.168.1.10", "success": true },
+      { "timestamp": "2026-04-10T14:23:00Z", "ip": "192.168.1.10", "success": true }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Bob Martinez",
+    "email": "bob@example.com",
+    "age": 28,
+    "active": true,
+    "score": 84.1,
+    "phone": null,
+    "address": { "street": "88 Oak Street", "city": "Austin", "state": "TX", "zip": "73301", "country": "US" },
+    "tags": ["developer", "api-tester"],
+    "lucky_numbers": [13, 27],
+    "ratings": [3.9, 4.2, 4.0],
+    "preferences": { "theme": "light", "language": "es", "notifications": false, "timezone": "America/Chicago" },
+    "roles": [
+      { "id": 3, "name": "developer", "level": 3, "permissions": ["read", "write"] }
+    ],
+    "login_history": [
+      { "timestamp": "2026-03-28T08:45:00Z", "ip": "10.0.0.5", "success": false },
+      { "timestamp": "2026-03-28T08:46:00Z", "ip": "10.0.0.5", "success": true },
+      { "timestamp": "2026-04-11T17:00:00Z", "ip": "10.0.0.5", "success": true }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Carol Smith",
+    "email": "carol@example.com",
+    "age": 41,
+    "active": false,
+    "score": 62.0,
+    "phone": "+1-555-0303",
+    "address": { "street": "5 Birchwood Lane", "city": "Chicago", "state": "IL", "zip": "60601", "country": "US" },
+    "tags": ["viewer"],
+    "lucky_numbers": [1, 2, 3, 5, 8, 13],
+    "ratings": [2.5, 3.0],
+    "preferences": { "theme": "system", "language": "en", "notifications": true, "timezone": "America/Chicago" },
+    "roles": [
+      { "id": 4, "name": "viewer", "level": 1, "permissions": ["read"] }
+    ],
+    "login_history": [
+      { "timestamp": "2026-01-15T10:00:00Z", "ip": "172.16.0.3", "success": true }
     ]
   }
+]
 
-  ---
-  3. Create User
+---
+7. Get Single User
 
-  // Request
-  POST http://localhost:8000/users
-  { "name": "New User" }
+// Request
+GET http://localhost:8000/users/1
 
-  // Response  201
-  { "id": 3, "name": "New User" }
+// Response 200
+{
+  "id": 1,
+  "name": "Alice Nguyen",
+  "email": "alice@example.com",
+  "age": 34,
+  "active": true,
+  "score": 97.4,
+  "phone": "+1-555-0101",
+  "address": { "street": "12 Maple Avenue", "city": "San Francisco", "state": "CA", "zip": "94103", "country": "US" },
+  "tags": ["admin", "qa-lead", "automation"],
+  "lucky_numbers": [3, 7, 21, 42],
+  "ratings": [4.8, 4.9, 5.0, 4.7],
+  "preferences": { "theme": "dark", "language": "en", "notifications": true, "timezone": "America/Los_Angeles" },
+  "roles": [
+    { "id": 1, "name": "admin",   "level": 5, "permissions": ["read", "write", "delete"] },
+    { "id": 2, "name": "qa-lead", "level": 4, "permissions": ["read", "write"] }
+  ],
+  "login_history": [
+    { "timestamp": "2026-04-01T09:00:00Z", "ip": "192.168.1.10", "success": true },
+    { "timestamp": "2026-04-10T14:23:00Z", "ip": "192.168.1.10", "success": true }
+  ]
+}
 
-  ---
-  4. Get Single User
+---
+8. Get Single User — Not Found
 
-  // Request
-  GET http://localhost:8000/users/1   (any id)
+// Request
+GET http://localhost:8000/users/999
 
-  // Response  200
-  { "id": 1, "name": "Alice" }
+// Response 404
+{ "error": "User 999 not found" }
 
-  ---
-  5. Replace User (Full Update)
+---
+9. Create User
 
-  // Request
-  PUT http://localhost:8000/users/1
-  { "name": "Updated User" }
+// Request
+POST http://localhost:8000/users
+{
+  "name": "Dave Lee",
+  "email": "dave@example.com",
+  "age": 25,
+  "active": true,
+  "tags": ["tester"],
+  "roles": [{ "id": 5, "name": "viewer", "level": 1, "permissions": ["read"] }]
+}
 
-  // Response  200                                                                                                                                                                                                                           
-  { "id": 1, "name": "Updated User" }
-                                                                                                                                                                                                                                             
-  ---                                                                                                                                                                                                                                      
-  6. Update User (Partial Update)
+// Response 201  (id is auto-assigned)
+{
+  "id": 4,
+  "name": "Dave Lee",
+  "email": "dave@example.com",
+  "age": 25,
+  "active": true,
+  "tags": ["tester"],
+  "roles": [{ "id": 5, "name": "viewer", "level": 1, "permissions": ["read"] }]
+}
 
-  // Request
-  PATCH http://localhost:8000/users/1
-  { "name": "Patched User" }
-                                                                                                                                                                                                                                             
-  // Response  200
-  { "id": 1, "name": "Patched User" }                                                                                                                                                                                                        
-                                                                                                                                                                                                                                           
-  ---
-  7. Delete User
+---
+10. Replace User — Full Update (PUT)
 
-  // Request
-  DELETE http://localhost:8000/users/1
+// Request
+PUT http://localhost:8000/users/1
+{
+  "name": "Alice Updated",
+  "email": "alice-new@example.com",
+  "age": 35,
+  "active": false
+}
 
-  // Response  204
-  (no body)
-                                                                                                                                                                                                                                             
-  ---
-  8. Slow Endpoint (1.5s delay)                                                                                                                                                                                                              
-                                                                                                                                                                                                                                           
-  // Request
-  GET http://localhost:8000/slow
+// Response 200  (entire object is replaced — fields not sent are gone)
+{
+  "id": 1,
+  "name": "Alice Updated",
+  "email": "alice-new@example.com",
+  "age": 35,
+  "active": false
+}
 
-  // Response  200  (after 1500ms)
-  { "message": "This response was intentionally delayed" }
-                                                                                                                                                                                                                                             
-  ---
-  9. Server Error                                                                                                                                                                                                                            
-                                                                                                                                                                                                                                           
-  // Request
-  GET http://localhost:8000/error
+---
+11. Replace User — Not Found (PUT)
 
-  // Response  500
-  { "error": "Internal Server Error", "message": "Something went wrong" }
-                                                                                                                                                                                                                                             
-  ---
-  10. Unauthorized                                                                                                                                                                                                                           
-                                                                                                                                                                                                                                           
-  // Request
-  GET http://localhost:8000/unauthorized
+// Request
+PUT http://localhost:8000/users/999
+{ "name": "Ghost" }
 
-  // Response  401
-  { "error": "Unauthorized", "message": "Missing or invalid token" }
+// Response 404
+{ "error": "User 999 not found" }
 
-  ---
-  11. Custom Headers
+---
+12. Update User — Partial Update (PATCH)
 
-  // Request
-  GET http://localhost:8000/custom-headers
+// Request
+PATCH http://localhost:8000/users/2
+{ "active": false }
 
-  // Response  200
-  // Headers: X-Custom-Header: my-value, X-Request-Id: abc-123
-  { "message": "Response includes custom headers" }
-                                                                                                                                                                                                                                             
-  ---
-  These are the static mocks from the YAML. You can add more on the fly via POST /admin/mocks without restarting the server.                          
+// Response 200  (only active changed, all other fields preserved)
+{
+  "id": 2,
+  "name": "Bob Martinez",
+  "email": "bob@example.com",
+  "age": 28,
+  "active": false,
+  "score": 84.1,
+  "phone": null,
+  ...
+}
+
+---
+13. Update User — Not Found (PATCH)
+
+// Request
+PATCH http://localhost:8000/users/999
+{ "active": false }
+
+// Response 404
+{ "error": "User 999 not found" }
+
+---
+14. Delete User
+
+// Request
+DELETE http://localhost:8000/users/3
+
+// Response 204
+(no body)
+
+---
+15. Delete User — Not Found
+
+// Request
+DELETE http://localhost:8000/users/999
+
+// Response 404
+{ "error": "User 999 not found" }
+
+
+---
+DYNAMIC ENDPOINTS  (built-in routes with runtime behaviour)
+---
+
+16. Echo
+
+// Request
+POST http://localhost:8000/echo
+{ "name": "Alice", "role": "admin" }
+
+// Response 200
+{
+  "name": "Alice",
+  "role": "admin",
+  "timestamp": "2026-04-13T10:30:00.000000+00:00"
+}
+
+---
+17. Authenticated Echo — Valid Token
+
+// Request
+POST http://localhost:8000/echo/secure
+Authorization: Bearer a3f1c2d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+{ "name": "Alice", "role": "admin" }
+
+// Response 200
+{
+  "name": "Alice",
+  "role": "admin",
+  "timestamp": "2026-04-13T10:30:00.000000+00:00"
+}
+
+---
+18. Authenticated Echo — Missing Token
+
+// Request
+POST http://localhost:8000/echo/secure
+{ "name": "Alice" }
+
+// Response 401
+{ "valid": false, "error": "Missing or malformed Authorization header. Expected: Bearer <token>" }
+
+---
+19. Authenticated Echo — Invalid/Expired Token
+
+// Request
+POST http://localhost:8000/echo/secure
+Authorization: Bearer invalid-or-expired-token
+{ "name": "Alice" }
+
+// Response 401
+{ "valid": false, "error": "Token is invalid or expired" }
+
+---
+20. Get Token
+
+// Request
+POST http://localhost:8000/auth/token
+
+// Response 201
+{
+  "token": "a3f1c2d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "expires_at": "2026-04-13T11:00:00.000000+00:00",
+  "expires_in": 1800
+}
+
+---
+21. Validate Token — Valid
+
+// Request
+GET http://localhost:8000/auth/validate
+Authorization: Bearer a3f1c2d4-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+// Response 200
+{ "valid": true, "message": "Token is valid" }
+
+---
+22. Validate Token — Invalid or Expired
+
+// Request
+GET http://localhost:8000/auth/validate
+Authorization: Bearer invalid-or-expired-token
+
+// Response 401
+{ "valid": false, "error": "Token is invalid or expired" }
+
+---
+23. Validate Token — Missing Header
+
+// Request
+GET http://localhost:8000/auth/validate
+
+// Response 401
+{ "valid": false, "error": "Missing or malformed Authorization header. Expected: Bearer <token>" }
+
+
+---
+ADMIN API  (mock management and request log)
+---
+
+24. Register a Mock
+
+// Request
+POST http://localhost:8000/admin/mocks
+{
+  "method": "GET",
+  "path": "/orders",
+  "response": {
+    "status": 200,
+    "body": { "orders": [] }
+  }
+}
+
+// Response 201
+{
+  "id": "e3b0c442-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "method": "GET",
+  "path": "/orders",
+  "response": { "status": 200, "body": { "orders": [] } }
+}
+
+---
+25. List All Mocks
+
+// Request
+GET http://localhost:8000/admin/mocks
+
+// Response 200
+[
+  {
+    "id": "e3b0c442-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "method": "GET",
+    "path": "/orders",
+    "response": { "status": 200, "body": { "orders": [] } }
+  }
+]
+
+---
+26. Delete a Mock by ID
+
+// Request
+DELETE http://localhost:8000/admin/mocks/e3b0c442-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+// Response 204
+(no body)
+
+---
+27. Delete a Mock — Not Found
+
+// Request
+DELETE http://localhost:8000/admin/mocks/nonexistent-id
+
+// Response 404
+{ "error": "Mock not found" }
+
+---
+28. Clear All Mocks
+
+// Request
+DELETE http://localhost:8000/admin/mocks
+
+// Response 204
+(no body)
+
+---
+29. Get Request Log
+
+// Request
+GET http://localhost:8000/admin/requests
+
+// Response 200
+[
+  {
+    "method": "POST",
+    "path": "/users",
+    "headers": { "Content-Type": "application/json", "..." : "..." },
+    "body": { "name": "Dave Lee" },
+    "timestamp": "2026-04-13T10:30:00.000000+00:00"
+  }
+]
+
+---
+30. Clear Request Log
+
+// Request
+DELETE http://localhost:8000/admin/requests
+
+// Response 204
+(no body)

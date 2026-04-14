@@ -324,6 +324,389 @@ public void shouldHandleUnauthorized() {
 
 ---
 
+## Stateful User CRUD
+
+A real in-memory user store pre-populated with 3 users on every startup. Data resets on server restart — ideal for repeatable test runs.
+
+### Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/users` | List all users |
+| `POST` | `/users` | Create a user (id auto-assigned) |
+| `GET` | `/users/{id}` | Get a single user |
+| `PUT` | `/users/{id}` | Full replace — entire object is replaced |
+| `PATCH` | `/users/{id}` | Partial update — only sent fields are changed |
+| `DELETE` | `/users/{id}` | Delete a user |
+
+Returns `404` with `{ "error": "User {id} not found" }` when the user doesn't exist.
+
+### Seed user structure
+
+Each user covers a variety of data types for thorough assertion testing:
+
+```json
+{
+  "id": 1,
+  "name": "Alice Nguyen",
+  "email": "alice@example.com",
+  "age": 34,
+  "active": true,
+  "score": 97.4,
+  "phone": "+1-555-0101",
+  "address": {
+    "street": "12 Maple Avenue",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94103",
+    "country": "US"
+  },
+  "tags": ["admin", "qa-lead", "automation"],
+  "lucky_numbers": [3, 7, 21, 42],
+  "ratings": [4.8, 4.9, 5.0, 4.7],
+  "preferences": {
+    "theme": "dark",
+    "language": "en",
+    "notifications": true,
+    "timezone": "America/Los_Angeles"
+  },
+  "roles": [
+    { "id": 1, "name": "admin",   "level": 5, "permissions": ["read", "write", "delete"] },
+    { "id": 2, "name": "qa-lead", "level": 4, "permissions": ["read", "write"] }
+  ],
+  "login_history": [
+    { "timestamp": "2026-04-01T09:00:00Z", "ip": "192.168.1.10", "success": true },
+    { "timestamp": "2026-04-10T14:23:00Z", "ip": "192.168.1.10", "success": true }
+  ]
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `id`, `age` | int | |
+| `score` | float | |
+| `active` | boolean | User 3 is inactive (`false`) |
+| `phone` | string / null | User 2 has `null` phone |
+| `address`, `preferences` | nested object | |
+| `tags` | list of strings | |
+| `lucky_numbers` | list of ints | |
+| `ratings` | list of floats | |
+| `roles` | array of objects | each has a `permissions` list of strings |
+| `login_history` | array of objects | User 2 has a failed login attempt |
+
+### Java REST Assured examples
+
+```java
+@Test
+public void shouldListAllUsers() {
+    given()
+    .when()
+        .get("/users")
+    .then()
+        .statusCode(200)
+        .body("size()", equalTo(3));
+}
+
+@Test
+public void shouldGetUserById() {
+    given()
+    .when()
+        .get("/users/1")
+    .then()
+        .statusCode(200)
+        .body("name", equalTo("Alice Nguyen"))
+        .body("active", equalTo(true))
+        .body("score", equalTo(97.4f))
+        .body("address.city", equalTo("San Francisco"))
+        .body("tags", hasItems("admin", "qa-lead"))
+        .body("lucky_numbers", hasItems(3, 7, 21, 42))
+        .body("roles[0].name", equalTo("admin"))
+        .body("roles[0].permissions", hasItems("read", "write", "delete"))
+        .body("login_history.size()", equalTo(2));
+}
+
+@Test
+public void shouldReturnNullPhoneForUser2() {
+    given()
+    .when()
+        .get("/users/2")
+    .then()
+        .statusCode(200)
+        .body("phone", nullValue());
+}
+
+@Test
+public void shouldCreateUser() {
+    String body = """
+        {
+          "name": "Dave Lee",
+          "email": "dave@example.com",
+          "age": 25,
+          "active": true,
+          "tags": ["tester"],
+          "roles": [{ "id": 5, "name": "viewer", "level": 1, "permissions": ["read"] }]
+        }
+    """;
+
+    given()
+        .contentType("application/json")
+        .body(body)
+    .when()
+        .post("/users")
+    .then()
+        .statusCode(201)
+        .body("id", equalTo(4))
+        .body("name", equalTo("Dave Lee"));
+}
+
+@Test
+public void shouldFullyReplaceUser() {
+    String body = """
+        { "name": "Alice Updated", "email": "alice-new@example.com", "age": 35, "active": false }
+    """;
+
+    given()
+        .contentType("application/json")
+        .body(body)
+    .when()
+        .put("/users/1")
+    .then()
+        .statusCode(200)
+        .body("name", equalTo("Alice Updated"))
+        .body("age", equalTo(35));
+}
+
+@Test
+public void shouldPartiallyUpdateUser() {
+    given()
+        .contentType("application/json")
+        .body("{ \"active\": false }")
+    .when()
+        .patch("/users/2")
+    .then()
+        .statusCode(200)
+        .body("active", equalTo(false))
+        .body("name", equalTo("Bob Martinez"));   // unchanged
+}
+
+@Test
+public void shouldDeleteUser() {
+    given().delete("/users/3").then().statusCode(204);
+    given().get("/users/3").then().statusCode(404);
+}
+
+@Test
+public void shouldReturn404ForMissingUser() {
+    given().get("/users/999").then().statusCode(404);
+}
+```
+
+---
+
+## Built-in Dynamic Endpoints
+
+These are built-in routes with dynamic behaviour — not configurable via YAML.
+
+---
+
+### Echo — `POST /echo`
+
+Returns the request body unchanged, with a `timestamp` field added.
+
+**Request**
+```json
+POST /echo
+{
+  "name": "Alice",
+  "role": "admin"
+}
+```
+
+**Response `200`**
+```json
+{
+  "name": "Alice",
+  "role": "admin",
+  "timestamp": "2026-04-13T10:30:00.000000+00:00"
+}
+```
+
+---
+
+### Authenticated Echo — `POST /echo/secure`
+
+Same as `/echo` but requires a valid Bearer token. Returns `401` if the token is missing, malformed, or expired.
+
+**Request**
+```
+POST /echo/secure
+Authorization: Bearer a3f1c2d4-...
+
+{ "name": "Alice" }
+```
+
+**Response `200` — valid token**
+```json
+{
+  "name": "Alice",
+  "timestamp": "2026-04-13T10:30:00.000000+00:00"
+}
+```
+
+**Response `401` — invalid or expired token**
+```json
+{ "valid": false, "error": "Token is invalid or expired" }
+```
+
+---
+
+### Get Token — `POST /auth/token`
+
+Issues a token valid for **30 minutes**.
+
+**Request**
+```
+POST /auth/token
+```
+
+**Response `201`**
+```json
+{
+  "token": "a3f1c2d4-...",
+  "expires_at": "2026-04-13T11:00:00.000000+00:00",
+  "expires_in": 1800
+}
+```
+
+---
+
+### Validate Token — `GET /auth/validate`
+
+Validates the Bearer token from the `Authorization` header.
+
+**Request**
+```
+GET /auth/validate
+Authorization: Bearer a3f1c2d4-...
+```
+
+**Response `200` — valid token**
+```json
+{ "valid": true, "message": "Token is valid" }
+```
+
+**Response `401` — invalid or expired**
+```json
+{ "valid": false, "error": "Token is invalid or expired" }
+```
+
+**Response `401` — missing header**
+```json
+{ "valid": false, "error": "Missing or malformed Authorization header. Expected: Bearer <token>" }
+```
+
+---
+
+### Java REST Assured examples
+
+```java
+@Test
+public void shouldEchoRequestBodyWithTimestamp() {
+    given()
+        .contentType("application/json")
+        .body("{ \"name\": \"Alice\", \"role\": \"admin\" }")
+    .when()
+        .post("/echo")
+    .then()
+        .statusCode(200)
+        .body("name", equalTo("Alice"))
+        .body("role", equalTo("admin"))
+        .body("timestamp", notNullValue());
+}
+
+@Test
+public void shouldIssueAndValidateToken() {
+    // Step 1 — get a token
+    String token =
+        given()
+        .when()
+            .post("/auth/token")
+        .then()
+            .statusCode(201)
+            .body("token", notNullValue())
+            .body("expires_in", equalTo(1800))
+            .extract().path("token");
+
+    // Step 2 — use the token to validate
+    given()
+        .header("Authorization", "Bearer " + token)
+    .when()
+        .get("/auth/validate")
+    .then()
+        .statusCode(200)
+        .body("valid", equalTo(true));
+}
+
+@Test
+public void shouldRejectMissingToken() {
+    given()
+    .when()
+        .get("/auth/validate")
+    .then()
+        .statusCode(401)
+        .body("valid", equalTo(false));
+}
+
+@Test
+public void shouldEchoWithValidToken() {
+    // Step 1 — get a token
+    String token =
+        given()
+        .when()
+            .post("/auth/token")
+        .then()
+            .statusCode(201)
+            .extract().path("token");
+
+    // Step 2 — call authenticated echo
+    given()
+        .contentType("application/json")
+        .header("Authorization", "Bearer " + token)
+        .body("{ \"name\": \"Alice\" }")
+    .when()
+        .post("/echo/secure")
+    .then()
+        .statusCode(200)
+        .body("name", equalTo("Alice"))
+        .body("timestamp", notNullValue());
+}
+
+@Test
+public void shouldRejectAuthenticatedEchoWithoutToken() {
+    given()
+        .contentType("application/json")
+        .body("{ \"name\": \"Alice\" }")
+    .when()
+        .post("/echo/secure")
+    .then()
+        .statusCode(401)
+        .body("valid", equalTo(false));
+}
+
+@Test
+public void shouldRejectInvalidToken() {
+    given()
+        .header("Authorization", "Bearer not-a-real-token")
+    .when()
+        .get("/auth/validate")
+    .then()
+        .statusCode(401)
+        .body("valid", equalTo(false));
+}
+```
+
+---
+
 ## Simulating Edge Cases
 
 ```yaml
@@ -368,7 +751,9 @@ public void shouldHandleUnauthorized() {
 ```
 ├── server.py          # Flask app — catch-all route, startup
 ├── admin.py           # Admin API blueprint (/admin/*)
-├── store.py           # In-memory mock store and request log
+├── dynamic.py         # Built-in dynamic routes (/echo, /auth/*)
+├── resources.py       # Stateful user CRUD (/users) + seed data
+├── store.py           # In-memory store: mocks, request log, tokens, users
 ├── mocks/
 │   └── example.yaml   # Pre-loaded mock definitions
 ├── Dockerfile

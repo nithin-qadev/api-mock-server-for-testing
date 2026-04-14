@@ -3,10 +3,14 @@ import time
 import yaml
 from flask import Flask, request, jsonify
 from admin import admin
+from dynamic import dynamic
+from resources import resources, SEED_USERS
 from store import store
 
 app = Flask(__name__)
 app.register_blueprint(admin)
+app.register_blueprint(dynamic)
+app.register_blueprint(resources)
 
 ALL_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
@@ -55,4 +59,6 @@ if __name__ == "__main__":
     mocks_file = os.getenv("MOCKS_FILE", "mocks/example.yaml")
     port = int(os.getenv("PORT", 8000))
     load_yaml_mocks(mocks_file)
+    store.seed_users(SEED_USERS)
+    print(f"[mock-server] Seeded {len(SEED_USERS)} user(s) into the user store")
     app.run(host="0.0.0.0", port=port, debug=True)
